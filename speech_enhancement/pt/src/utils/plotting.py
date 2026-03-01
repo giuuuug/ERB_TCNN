@@ -29,9 +29,11 @@ def plot_training_metrics(metrics_df, figsize=(10, 15)):
         fig : Matplotlib figure
     '''
 
+    # Filter out rows that are entirely zero (unreached epochs)
+    metrics_df = metrics_df.loc[(metrics_df != 0).any(axis=1)]
+
     fig = plt.figure(figsize=figsize)
     gs = gridspec.GridSpec(nrows=3, ncols=2)
-
 
     ax00 = fig.add_subplot(gs[0, 0])
     ax01 = fig.add_subplot(gs[0, 1])
@@ -39,32 +41,26 @@ def plot_training_metrics(metrics_df, figsize=(10, 15)):
     ax11 = fig.add_subplot(gs[1, 1])
     ax_large = fig.add_subplot(gs[2, :])
 
-
     ax00.plot(metrics_df["train_loss"])
     ax00.set_title("Training loss")
     ax00.set_xlabel("Epoch")
-    ax00.set_xticks(np.arange(len(metrics_df)))
 
     ax01.plot(metrics_df["val_mse"])
     ax01.set_title("Validation MSE on waveform")
     ax01.set_xlabel("Epoch")
-    ax01.set_xticks(np.arange(len(metrics_df)))
 
     ax10.plot(metrics_df["pesq"])
     ax10.set_title("Validation PESQ")
     ax10.set_xlabel("Epoch")
-    ax10.set_xticks(np.arange(len(metrics_df)))
 
     ax11.plot(metrics_df["stoi"])
     ax11.set_title("Validation STOI")
     ax11.set_xlabel("Epoch")
-    ax11.set_xticks(np.arange(len(metrics_df)))
 
     ax_large.plot(metrics_df["snr"], label="SNR")
     ax_large.plot(metrics_df["si-snr"], label="Scale-invariant SNR")
     ax_large.set_title("Validation SNR and SI-SNR")
     ax_large.set_xlabel("Epoch")
-    ax_large.set_xticks(np.arange(len(metrics_df)))
     ax_large.legend()
 
     return fig
