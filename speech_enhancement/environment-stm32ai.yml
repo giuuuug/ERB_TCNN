@@ -1,0 +1,41 @@
+# Environment file per l'environment `stm32ai` (Python 3.12)
+# Usa: `conda env create -f environment-stm32ai.yml` o `conda env update -n stm32ai -f environment-stm32ai.yml --prune`
+
+name: stm32ai
+channels:
+  - pytorch
+  - nvidia
+  - conda-forge
+  - defaults
+dependencies:
+  - python=3.12
+  - pip
+  - numpy
+  - pandas
+  - onnx
+  - onnxruntime
+  - omegaconf
+  - hydra-core
+  - pytorch::pytorch
+  - pytorch::torchvision
+  - pytorch::torchaudio
+  - pytorch::pytorch-cuda=11.8
+  - tf2onnx
+  - pesq
+  - pystoi
+  - clearml
+  - mlflow
+  - tensorflow
+  - texttable
+  - munch
+  - tabulate
+  - seaborn
+  - tqdm
+  - opencv 
+  - einops
+  - librosa
+  - marshmallow
+  - fsspec
+  - colorama
+
+  - pip: []

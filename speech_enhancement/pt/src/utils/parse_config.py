@@ -126,10 +126,10 @@ def _parse_training_section(cfg):
     legal = ["device", "epochs", "optimizer", "optimizer_arguments", "trainer_name",
            "loss", "batching_strategy", "num_dataloader_workers", "batch_size",
            "regularization", "save_every", "snapshot_path", "ckpt_path", "logs_filename",
-           "opset_version", "reference_metric", "early_stopping", "early_stopping_patience", "dryrun"]
+           "opset_version", "reference_metric", "early_stopping", "early_stopping_patience", "dryrun", "trainer_model", "loud_loss_weight", "si_snr_loss_weight"]
     required = ["device", "epochs", "optimizer", "optimizer_arguments",
                "loss", "batching_strategy", "batch_size", "trainer_name",
-               "save_every", "opset_version", "reference_metric", "early_stopping"]
+               "save_every", "opset_version", "reference_metric", "early_stopping", "trainer_model"]
     
     # Check that optimizer_arguments at least has the lr key present
     if "lr" not in cfg.optimizer_arguments:

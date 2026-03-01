@@ -50,14 +50,13 @@ def get_dataloaders(cfg: DictConfig):
         magnitude=False, **pipeline_args)
 
         loss = cfg.training.loss
-        if loss == "spec_mse":
-            # If using 
+        if loss in ["spec_mse", "loud_loss", "loud_loss__si_snr"]:
             train_target_pipeline = input_pipeline
         elif loss in ['wave_mse', 'wave_sisnr', 'wave_snr']:
             train_target_pipeline = IdentityPipeline(peak_normalize=pipeline_args["peak_normalize"])
         else:
-            raise ValueError("Invalid loss type. Should be one of 'spec_mse', 'wave_mse',"
-                            f"'wave_sisnr', 'wave_snr', but was {loss}")
+            raise ValueError("Invalid loss type. Should be one of 'spec_mse', 'loud_loss', 'loud_loss__si_snr',"
+                            f" 'wave_mse', 'wave_sisnr', 'wave_snr', but was {loss}")
 
         valid_target_pipeline = IdentityPipeline(peak_normalize=pipeline_args["peak_normalize"])
 

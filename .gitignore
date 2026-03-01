@@ -1,0 +1,6 @@
+*.sbatch
+*.err
+*.out
+*.pyc
+speech_enhancement/pt/src/experiment_outputs
+speech_enhancement/pt/src/tools

@@ -21,97 +21,97 @@ from common.registries.predictor_registry import PREDICTOR_WRAPPER_REGISTRY
 from common.utils import LOGGER
 
 # for tensorflow based image classification
-import image_classification.tf.wrappers.datasets        # this is done so that registeration happens before get_dataloader is called
-import image_classification.tf.wrappers.models          # this is done so that registeration happens before get_model is called
-import image_classification.tf.wrappers.training        # this is done so that registeration happens before get_trainer is called
-import image_classification.tf.wrappers.quantization    # this is done so that registeration happens before get_quantizer is called
-import image_classification.tf.wrappers.evaluation      # this is done so that registeration happens before get_evaluator is called
-import image_classification.tf.wrappers.prediction      # this is done so that registeration happens before get_predictor is called
+# import image_classification.tf.wrappers.datasets        # this is done so that registeration happens before get_dataloader is called
+# import image_classification.tf.wrappers.models          # this is done so that registeration happens before get_model is called
+# import image_classification.tf.wrappers.training        # this is done so that registeration happens before get_trainer is called
+# import image_classification.tf.wrappers.quantization    # this is done so that registeration happens before get_quantizer is called
+# import image_classification.tf.wrappers.evaluation      # this is done so that registeration happens before get_evaluator is called
+# import image_classification.tf.wrappers.prediction      # this is done so that registeration happens before get_predictor is called
 
-# for pytorch based image classification
-import image_classification.pt.wrappers.datasets    # this is done so that registeration happens before get_dataloader is called
-import image_classification.pt.wrappers.models      # this is done so that registeration happens before get_model is called
-import image_classification.pt.wrappers.training    # this is done so that registeration happens before get_trainer is called
-import image_classification.pt.wrappers.quantization    # this is done so that registeration happens before get_quantizer is called
-import image_classification.pt.wrappers.evaluation      # this is done so that registeration happens before get_evaluator is called
-import image_classification.pt.wrappers.prediction  # this is done so that registeration happens before get_evaluator is called
+# # for pytorch based image classification
+# import image_classification.pt.wrappers.datasets    # this is done so that registeration happens before get_dataloader is called
+# import image_classification.pt.wrappers.models      # this is done so that registeration happens before get_model is called
+# import image_classification.pt.wrappers.training    # this is done so that registeration happens before get_trainer is called
+# import image_classification.pt.wrappers.quantization    # this is done so that registeration happens before get_quantizer is called
+# import image_classification.pt.wrappers.evaluation      # this is done so that registeration happens before get_evaluator is called
+# import image_classification.pt.wrappers.prediction  # this is done so that registeration happens before get_evaluator is called
 
-# for audio event detection
-import audio_event_detection.tf.wrappers.models.standard_models
-import audio_event_detection.tf.wrappers.datasets
-import audio_event_detection.tf.wrappers.training
-import audio_event_detection.tf.wrappers.evaluation
-import audio_event_detection.tf.wrappers.quantization
-import audio_event_detection.tf.wrappers.prediction
+# # for audio event detection
+# import audio_event_detection.tf.wrappers.models.standard_models
+# import audio_event_detection.tf.wrappers.datasets
+# import audio_event_detection.tf.wrappers.training
+# import audio_event_detection.tf.wrappers.evaluation
+# import audio_event_detection.tf.wrappers.quantization
+# import audio_event_detection.tf.wrappers.prediction
 
-# for depth estimation
-import depth_estimation.tf.wrappers.datasets
-import depth_estimation.tf.wrappers.prediction
+# # for depth estimation
+# import depth_estimation.tf.wrappers.datasets
+# import depth_estimation.tf.wrappers.prediction
 
-# for instance segmentation
-import instance_segmentation.tf.wrappers.datasets
-import instance_segmentation.tf.wrappers.prediction
+# # for instance segmentation
+# import instance_segmentation.tf.wrappers.datasets
+# import instance_segmentation.tf.wrappers.prediction
 
-# for tensorflow based object detection
-import object_detection.tf.wrappers.models.standard_models
-import object_detection.tf.wrappers.models.custom_models
-import object_detection.tf.wrappers.datasets            # this is done so that registeration happens before get_dataloader is called
-import object_detection.tf.wrappers.prediction          # this is done so that registeration happens before get_predictor is called
-import object_detection.tf.wrappers.evaluation          # this is done so that registeration happens before get_evaluator is called
-import object_detection.tf.wrappers.quantization        # this is done so that registeration happens before get_quantizer is called
-import object_detection.tf.wrappers.training            # this is done so that registeration happens before get_trainer is called
+# # for tensorflow based object detection
+# import object_detection.tf.wrappers.models.standard_models
+# import object_detection.tf.wrappers.models.custom_models
+# import object_detection.tf.wrappers.datasets            # this is done so that registeration happens before get_dataloader is called
+# import object_detection.tf.wrappers.prediction          # this is done so that registeration happens before get_predictor is called
+# import object_detection.tf.wrappers.evaluation          # this is done so that registeration happens before get_evaluator is called
+# import object_detection.tf.wrappers.quantization        # this is done so that registeration happens before get_quantizer is called
+# import object_detection.tf.wrappers.training            # this is done so that registeration happens before get_trainer is called
 
-# for pytorch based object detection
-import object_detection.pt.wrappers.models
-import object_detection.pt.wrappers.datasets
-import object_detection.pt.wrappers.training
-import object_detection.pt.wrappers.evaluation
+# # for pytorch based object detection
+# import object_detection.pt.wrappers.models
+# import object_detection.pt.wrappers.datasets
+# import object_detection.pt.wrappers.training
+# import object_detection.pt.wrappers.evaluation
 
-# for pose estimation
-import pose_estimation.tf.wrappers.datasets             # this is done so that registeration happens before get_dataloader is called
-import pose_estimation.tf.wrappers.models.custom_models # this is done so that registeration happens before get_model is called
-import pose_estimation.tf.wrappers.training             # this is done so that registeration happens before get_trainer is called
-import pose_estimation.tf.wrappers.evaluation           # this is done so that registeration happens before get_evaluator is called
-import pose_estimation.tf.wrappers.quantization         # this is done so that registeration happens before get_quantizer is called
-import pose_estimation.tf.wrappers.prediction           # this is done so that registeration happens before get_predictor is called
+# # for pose estimation
+# import pose_estimation.tf.wrappers.datasets             # this is done so that registeration happens before get_dataloader is called
+# import pose_estimation.tf.wrappers.models.custom_models # this is done so that registeration happens before get_model is called
+# import pose_estimation.tf.wrappers.training             # this is done so that registeration happens before get_trainer is called
+# import pose_estimation.tf.wrappers.evaluation           # this is done so that registeration happens before get_evaluator is called
+# import pose_estimation.tf.wrappers.quantization         # this is done so that registeration happens before get_quantizer is called
+# import pose_estimation.tf.wrappers.prediction           # this is done so that registeration happens before get_predictor is called
 
-# for neural style transfer
-import neural_style_transfer.tf.wrappers.datasets       # this is done so that registeration happens before get_dataloader is called
-import neural_style_transfer.tf.wrappers.prediction     # this is done so that registeration happens before get_dataloader is called
+# # for neural style transfer
+# import neural_style_transfer.tf.wrappers.datasets       # this is done so that registeration happens before get_dataloader is called
+# import neural_style_transfer.tf.wrappers.prediction     # this is done so that registeration happens before get_dataloader is called
 
-# for re-identification
-import re_identification.tf.wrappers.models.standard_models
+# # for re-identification
+# import re_identification.tf.wrappers.models.standard_models
 
-# for semantic segmentation
-import semantic_segmentation.tf.wrappers.models  # triggers registration of standard & custom models via __init__
-import semantic_segmentation.tf.wrappers.datasets
-import semantic_segmentation.tf.wrappers.training
-import semantic_segmentation.tf.wrappers.evaluation
-import semantic_segmentation.tf.wrappers.prediction
-import semantic_segmentation.tf.wrappers.quantization
+# # for semantic segmentation
+# import semantic_segmentation.tf.wrappers.models  # triggers registration of standard & custom models via __init__
+# import semantic_segmentation.tf.wrappers.datasets
+# import semantic_segmentation.tf.wrappers.training
+# import semantic_segmentation.tf.wrappers.evaluation
+# import semantic_segmentation.tf.wrappers.prediction
+# import semantic_segmentation.tf.wrappers.quantization
 
-# for arc fault detection
-import arc_fault_detection.tf.wrappers.models.custom_models
-import arc_fault_detection.tf.wrappers.datasets
+# # for arc fault detection
+# import arc_fault_detection.tf.wrappers.models.custom_models
+# import arc_fault_detection.tf.wrappers.datasets
 
-# for speech enhancement
+# # for speech enhancement
 import speech_enhancement.pt.wrappers.models.custom_models
 import speech_enhancement.pt.wrappers.datasets
 import speech_enhancement.pt.wrappers.evaluation
 import speech_enhancement.pt.wrappers.quantization
 import speech_enhancement.pt.wrappers.training
 
-# for human_activity_recognition
-import human_activity_recognition.tf.wrappers.models.custom_models
-import human_activity_recognition.tf.wrappers.datasets
-import human_activity_recognition.tf.wrappers.training
-import human_activity_recognition.tf.wrappers.evaluation
+# # for human_activity_recognition
+# import human_activity_recognition.tf.wrappers.models.custom_models
+# import human_activity_recognition.tf.wrappers.datasets
+# import human_activity_recognition.tf.wrappers.training
+# import human_activity_recognition.tf.wrappers.evaluation
 
-# for hand posture
-import hand_posture.tf.wrappers.models.custom_models
-import hand_posture.tf.wrappers.datasets
-import hand_posture.tf.wrappers.training
-import hand_posture.tf.wrappers.evaluation
+# # for hand posture
+# import hand_posture.tf.wrappers.models.custom_models
+# import hand_posture.tf.wrappers.datasets
+# import hand_posture.tf.wrappers.training
+# import hand_posture.tf.wrappers.evaluation
 
 from common.model_utils.tf_model_loader import load_model_from_path
 from pathlib import Path

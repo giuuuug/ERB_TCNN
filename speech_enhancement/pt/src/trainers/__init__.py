@@ -9,3 +9,4 @@
 from .base import BaseTrainer
 from .spec import MagSpecTrainer
 from .train import SETrainerWrapper
+from .myspec import MyMagSpecTrainer

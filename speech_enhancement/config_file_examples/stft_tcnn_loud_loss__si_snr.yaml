@@ -1,5 +1,5 @@
 general:
-  project_name: stft_tcnn_loud_loss
+  project_name: stft_tcnn_loud_loss__SI_SNR
   logs_dir: logs
   saved_models_dir: saved_models 
   gpu_memory_limit: 0.9 # Fraction of GPU's memory to use.
@@ -65,10 +65,10 @@ training:
  optimizer_arguments: {lr: 0.001}
 
  # Training loop parameters
- loss: loud_loss # one of ["wave_mse", "wave_snr", "wave_sisnr", "spec_mse", "loud_loss", "loud_loss__si_snr"]
- loud_loss_weight: 1.0
- si_snr_loss_weight: 1.0
+ loss: loud_loss__si_snr # one of ["wave_mse", "wave_snr", "wave_sisnr", "spec_mse", "loud_loss", "loud_loss__si_snr"]
  batching_strategy: pad # one of ["trim", "pad"]
+ loud_loss_weight: 0.005
+ si_snr_loss_weight: 1.0
 
  # Dataloader parameters
  num_dataloader_workers: 4 # Should divide batch_size Set to 0 if on Windows and having issues.
@@ -142,5 +142,9 @@ mlflow:
 
 hydra:
   run:
-    dir: ./pt/src/experiment_outputs/stft_tcnn_loud_loss
+    dir: ./pt/src/experiment_outputs/stft_tcnn_loud_loss__SI_SNR
+  
+
+
+
 

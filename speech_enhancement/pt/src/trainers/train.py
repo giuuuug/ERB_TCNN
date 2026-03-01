@@ -10,7 +10,8 @@
 import torch
 from pathlib import Path
 import matplotlib.pyplot as plt
-from speech_enhancement.pt.src.trainers import MagSpecTrainer
+from .spec import MagSpecTrainer
+from .myspec import MyMagSpecTrainer
 from speech_enhancement.pt.src.utils import plot_training_metrics
 from common.utils import log_to_file
 
@@ -75,10 +76,30 @@ class SETrainerWrapper:
             cfg.training.regularization = {}
         regularization_args = cfg.training.regularization
 
-        # For now, we only have one trainer so we instantiate it here
-        # If we have more trainers later on, instantiate them in the api wrapper instead
-        # and pass to this class
-        self.trainer = MagSpecTrainer(model=model,
+        if cfg.training.trainer_model  == "MyMagSpecTrainer":
+            print("\n[ASSERTION] Using MyMagSpecTrainer \n")
+            self.trainer = MyMagSpecTrainer(model=model,
+                                optimizer=self.optimizer,
+                                train_data=self.train_dl,
+                                valid_data=self.valid_dl,
+                                loss=cfg.training.loss,
+                                batching_strat=cfg.training.batching_strategy,
+                                device=cfg.training.device,
+                                device_memory_fraction=cfg.general.gpu_memory_limit,
+                                save_every=cfg.training.save_every,
+                                ckpt_path=ckpt_path,
+                                logs_path=self.logs_path,
+                                snapshot_path=snapshot_path,
+                                early_stopping=cfg.training.early_stopping,
+                                early_stopping_patience=cfg.training.early_stopping_patience,
+                                reference_metric=cfg.training.reference_metric,
+                                loud_loss_weight=cfg.training.loud_loss_weight,
+                                si_snr_loss_weight=cfg.training.si_snr_loss_weight,
+                                **preproc_args,
+                                **regularization_args)
+        else:
+            print("\n[ASSERTION] Using MagSpecTrainer \n")
+            self.trainer = MagSpecTrainer(model=model,
                                 optimizer=self.optimizer,
                                 train_data=self.train_dl,
                                 valid_data=self.valid_dl,
@@ -111,6 +132,7 @@ class SETrainerWrapper:
         if self.cfg.general.display_figures:
             plt.show()
         plt.savefig(Path(self.logs_path.parent, "training_metrics.png"))
+        plt.close(fig)
 
     def train(self):
         '''Run training and export trained and best models to ONNX.
@@ -171,6 +193,9 @@ class SETrainerWrapper:
         
         print("\n [INFO] Training complete\n"
               f"Trained model saved at {onnx_model_path}")
+        
+        # Plot figures
+        self._plot_figures()
 
         onnx_model_session = InferenceSession(onnx_model_path)
         best_onnx_model_session = InferenceSession(best_onnx_model_path)

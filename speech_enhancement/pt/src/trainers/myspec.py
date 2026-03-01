@@ -1,12 +1,3 @@
-# /*---------------------------------------------------------------------------------------------
-#  * Copyright (c) 2024 STMicroelectronics.
-#  * All rights reserved.
-#  *
-#  * This software is licensed under terms that can be found in the LICENSE file in
-#  * the root directory of this software component.
-#  * If no LICENSE file comes with this software, it is provided AS-IS.
-#  *--------------------------------------------------------------------------------------------*/
-
 '''Trainer for Models that take magnitude spectrograms as input and output masks
    that are applied to the complex spectrogram. Models are expected to have input shape
    (batch, frame_length, sequence_length), e.g. for n_fft=512 with 20 spectrogram frames
@@ -23,16 +14,48 @@ from tqdm import tqdm
 from torch.utils.data import default_collate
 from pesq import pesq
 from pystoi import stoi
-from speech_enhancement.pt.src.metrics import si_snr, snr, SISNRLoss, SNRLoss
+from speech_enhancement.pt.src.metrics import si_snr, snr, SISNRLoss
 from pathlib import Path
+
+LOUD_SPL_TABLE = {
+    20: 99.85,
+    25: 93.94,
+    31.5: 88.17,
+    40: 82.63,
+    50: 77.78,
+    63: 73.08,
+    80: 68.48,
+    100: 64.37,
+    125: 60.59,
+    160: 56.7,
+    200: 53.41,
+    250: 50.4,
+    315: 47.58,
+    400: 44.98,
+    500: 43.05,
+    630: 41.34,
+    800: 40.06,
+    1000: 40.01,
+    1250: 41.82,
+    1600: 42.51,
+    2000: 39.23,
+    2500: 36.51,
+    3150: 35.61,
+    4000: 36.65,
+    5000: 40.01,
+    6300: 45.83,
+    8000: 51.8,
+    10000: 54.28,
+    12500: 51.49,
+}
 
 class OutputHook(list):
     """ Hook to capture module outputs."""
     def __call__(self, module, input, output):
         self.append(output)
 
-class MagSpecTrainer(BaseTrainer):
-    '''Trainer class for the STFT-TCNN model.
+class MyMagSpecTrainer(BaseTrainer):
+    '''Trainer class for the ERB-TCNN model.
        Model input and output shape should be (batch, n_fft // 2 + 1, sequence_length).
        Input audio clips are trimmed to the length of the shortest clip in the batch, 
        so this tends to work better with small batch sizes.
@@ -50,7 +73,9 @@ class MagSpecTrainer(BaseTrainer):
                  center: bool, 
                  sampling_rate: int,
                  window: str = "hann",
-                 loss: str = "spec_mse",
+                 loss: str = "loud_loss__si_snr",
+                 loud_loss_weight: float = 0.005,
+                 si_snr_loss_weight: float = 1.0,
                  batching_strat: str = "trim",
                  weight_clipping_max: float = None,
                  activation_regularization: float = None,
@@ -63,10 +88,10 @@ class MagSpecTrainer(BaseTrainer):
                  ckpt_path: str = "checkpoints/",
                  logs_path: str = "training_logs.csv",
                  snapshot_path: str = "snapshot.pth",
-                 device_memory_fraction: float = 0.5,
+                 device_memory_fraction: float = 0.9,
                  early_stopping: bool = False,
                  reference_metric: str = "pesq",
-                 early_stopping_patience: int = 20
+                 early_stopping_patience: int = 20,
                  ):
         super().__init__(model=model,
                          optimizer=optimizer,
@@ -83,6 +108,8 @@ class MagSpecTrainer(BaseTrainer):
         self.n_fft = n_fft
         self.center = center
         self.loss = loss
+        self.loud_loss_weight = loud_loss_weight
+        self.si_snr_loss_weight = si_snr_loss_weight
         self.window = window
         self.weight_clipping_max = weight_clipping_max
         self.activation_regularization = activation_regularization
@@ -91,7 +118,7 @@ class MagSpecTrainer(BaseTrainer):
         self.act_reg_layer_types = act_reg_layer_types
         self.act_reg_threshold = act_reg_threshold
 
-        allowed_losses = ["spec_mse", "wave_mse", "wave_snr", "wave_sisnr"]
+        allowed_losses = ["loud_loss", "loud_loss__si_snr"]
         assert self.loss in allowed_losses, f"self.loss must be one of {allowed_losses}, was {self.loss}"
         
         self.batching_strat = batching_strat
@@ -108,13 +135,10 @@ class MagSpecTrainer(BaseTrainer):
         self.best_metric = np.inf if self.reference_metric in ["train_loss", "val_mse"] else -np.inf
         self.best_epoch = 0
         self.best_model_state_dict_path = Path(self.ckpt_path, "best_model_state_dict.pth")
-        if self.loss in ["spec_mse", "wave_mse"]:
-            self.loss_function = nn.MSELoss(reduction="mean")
-
-        elif self.loss == "wave_sisnr":
-            self.loss_function = SISNRLoss(reduction="mean")
-        elif self.loss == "wave_snr":
-            self.loss_function = SNRLoss(reduction="mean")
+        self.si_snr_loss = SISNRLoss(reduction="mean")
+        self.num_mel_subbands = 25
+        self.loud_loss_eps = 1e-9
+        self._prepare_loud_loss_params()
 
         if type(self.window) not in [np.ndarray, torch.Tensor]:
             # If window is a string or a tuple, pass to librosa.filters.get_window
@@ -139,7 +163,8 @@ class MagSpecTrainer(BaseTrainer):
             self.ord = 2
         else:
             raise ValueError(f"penalty_type must be one of 'l1', 'l2', was {self.penalty_type}")
-    def _run_train_epoch(self, epoch):
+    
+    def _run_train_epoch(self, epoch): 
         print(f"========= EPOCH {epoch + 1} : training ============")
         epoch_loss = 0
         self.model.train()
@@ -167,6 +192,7 @@ class MagSpecTrainer(BaseTrainer):
         else:
             noisy_frames, clean_signal = batch
             noisy_frames, clean_signal = noisy_frames.to(self.device), clean_signal.to(self.device)
+            sequence_lengths = None
 
         # Convert noisy complex spectrogram to magnitude spectrogram
         noisy_frames_mag = torch.abs(noisy_frames)
@@ -183,20 +209,19 @@ class MagSpecTrainer(BaseTrainer):
         else:
             pred_frames = noisy_frames * pred_weighted_mask
 
-        if self.loss == "spec_mse":
-            # Can't have MSE on complex values in torch
-            # Compute loss on real & imaginary parts together and then sum
-            loss_r = self.loss_function(pred_frames.real, clean_signal.real)
-            loss_i = self.loss_function(pred_frames.imag, clean_signal.imag)
-            loss = loss_r + loss_i
+        batch_size = pred_frames.shape[0]
+        seq_len = pred_frames.shape[-1]
+        time_mask, seq_lengths_tensor = self._build_time_mask(batch_size, seq_len, sequence_lengths)
 
-        elif self.loss in ["wave_mse", "wave_sisnr", "wave_snr"]:
-            pred_wave = torch.istft(pred_frames, n_fft=self.n_fft, hop_length=self.hop_length,
-                                    win_length=self.frame_length, window=self.window, center=self.center)
-            # Here, clean_signal should actually be a wave batch of shape (batch, wave_length)
-            # Clip clean signal to length of recomposed preds
-            clean_signal = clean_signal[:, :pred_wave.shape[-1]]
-            loss = self.loss_function(pred_wave, clean_signal)
+        pred_mag = torch.abs(pred_frames)
+        clean_mag = torch.abs(clean_signal)
+        loss = self._compute_loud_loss(pred_mag, clean_mag, time_mask, seq_lengths_tensor)
+
+        if self.loss == "loud_loss__si_snr":
+            si_loss = self._compute_si_snr(pred_frames, clean_signal, seq_lengths_tensor)
+            loss = self.loud_loss_weight * loss + self.si_snr_loss_weight * si_loss
+        else:
+            loss = self.loud_loss_weight * loss
 
         if self.activation_regularization:
             reg_penalty = 0
@@ -262,7 +287,6 @@ class MagSpecTrainer(BaseTrainer):
         # If early stopping is enabled and patience is exceeded, return that we need to stop training
         return (self.early_stopping and (epoch - self.best_epoch > self.early_stopping_patience))
 
-
     def _run_validation_batch(self, batch):
         noisy_frames, clean_wave = batch
         noisy_frames = noisy_frames.to(self.device)
@@ -271,18 +295,22 @@ class MagSpecTrainer(BaseTrainer):
         noisy_frames_mag = torch.abs(noisy_frames)
         pred_weighted_mask = self.model(noisy_frames_mag)
         pred_frames = noisy_frames * pred_weighted_mask
-        pred_wave = torch.istft(pred_frames, n_fft=self.n_fft, hop_length=self.hop_length,
-                                    win_length=self.frame_length, window=self.window, center=self.center)
-        # Squeeze waves
-        pred_wave, clean_wave = pred_wave.squeeze(), clean_wave.squeeze()
-        # Trim clean wave to the length of predicted wave
-        clean_wave = clean_wave[:pred_wave.shape[-1]]
-        # Put everything back on CPU
-        # Then compute metrics
-        denoised, clean_source = pred_wave.to("cpu"), clean_wave.to("cpu")
-        # Back to numpy
-        denoised = denoised.numpy()
-        clean_source = clean_source.numpy()
+
+        # Keep validation reconstruction aligned with ONNX evaluator:
+        # use librosa.istft and the configured `center` setting.
+        window = self.window
+        if isinstance(window, torch.Tensor):
+            window = window.detach().to("cpu").numpy()
+
+        pred_frames_np = pred_frames.detach().to("cpu").numpy()
+        pred_wave = librosa.istft(np.squeeze(pred_frames_np), n_fft=self.n_fft, hop_length=self.hop_length,
+                                  win_length=self.frame_length, window=window, center=self.center)
+
+        clean_source = clean_wave.detach().to("cpu").numpy().squeeze()
+        denoised = np.squeeze(pred_wave)
+        wave_len = min(denoised.shape[-1], clean_source.shape[-1])
+        clean_source = clean_source[:wave_len]
+        denoised = denoised[:wave_len]
 
         valid_loss = np.mean((denoised - clean_source) ** 2)
 
@@ -297,7 +325,6 @@ class MagSpecTrainer(BaseTrainer):
         valid_si_snr = si_snr(ref=clean_source,
                               deg=denoised)
         return (valid_loss, valid_pesq, valid_stoi, valid_snr, valid_si_snr)
-
 
     @staticmethod
     def _trim_collate(batch):
@@ -369,6 +396,145 @@ class MagSpecTrainer(BaseTrainer):
         for k, seq_len in enumerate(sequence_lengths):
             mask[k, :, :seq_len] += 1.0
         return mask
+
+    def _build_time_mask(self, batch_size, seq_len, sequence_lengths=None):
+        if sequence_lengths is None:
+            sequence_lengths_tensor = torch.full((batch_size,), seq_len, dtype=torch.int64, device=self.device)
+        else:
+            sequence_lengths_tensor = torch.as_tensor(sequence_lengths, dtype=torch.int64, device=self.device)
+        mask = torch.zeros((batch_size, seq_len), dtype=torch.float32, device=self.device)
+        for idx in range(batch_size):
+            length = int(sequence_lengths_tensor[idx].item())
+            clipped_length = min(length, seq_len)
+            if clipped_length > 0:
+                mask[idx, :clipped_length] = 1.0
+        return mask.unsqueeze(1), sequence_lengths_tensor
+
+    def _prepare_loud_loss_params(self):
+        self.spl_freqs = np.array(sorted(LOUD_SPL_TABLE.keys()))
+        self.spl_values = np.array([LOUD_SPL_TABLE[freq] for freq in self.spl_freqs])
+        self.spl_reference = self._lookup_spl(1000.0)
+        mel_min = self._hz_to_mel(0.0)
+        mel_max = self._hz_to_mel(self.sampling_rate / 2)
+        mel_points = np.linspace(mel_min, mel_max, self.num_mel_subbands + 2)
+        hz_points = self._mel_to_hz(mel_points)
+        bin_width = self.sampling_rate / self.n_fft
+        k_c = np.floor(hz_points / bin_width).astype(int)
+        k_c = np.clip(k_c, 0, self.n_fft // 2)
+        k_c = np.maximum.accumulate(k_c)
+        k_c[-1] = self.n_fft // 2
+        band_infos = []
+        for i in range(self.num_mel_subbands):
+            start = int(k_c[i])
+            end = int(k_c[i + 2])
+            if end <= start:
+                continue
+            center_freq = float(hz_points[i + 1])
+            weight = self._compute_band_weight(center_freq)
+            band_infos.append({
+                "start": start,
+                "end": end,
+                "weight": weight,
+                "freq_bins": end - start
+            })
+        if not band_infos:
+            raise ValueError("Loud-loss band split did not produce any valid sub-bands.")
+        self.band_infos = band_infos
+
+    @staticmethod
+    def _hz_to_mel(freq):
+        return 2595 * np.log10(1 + freq / 700)
+
+    @staticmethod
+    def _mel_to_hz(mel):
+        return 700 * (10 ** (mel / 2595) - 1)
+
+    def _lookup_spl(self, freq):
+        idx = int(np.argmin(np.abs(self.spl_freqs - freq)))
+        return float(self.spl_values[idx])
+
+    def _compute_band_weight(self, freq):
+        spl_value = self._lookup_spl(freq)
+        return self.spl_reference / spl_value
+
+    def _mag_to_log_power(self, magnitude):
+        return 10.0 * torch.log10(magnitude.pow(2) + self.loud_loss_eps)
+
+    def _compute_loud_loss(self, pred_mag, clean_mag, time_mask, sequence_lengths):
+        pred_log = self._mag_to_log_power(pred_mag)
+        clean_log = self._mag_to_log_power(clean_mag)
+        mask = time_mask.to(pred_log.dtype)
+        lengths = sequence_lengths.to(pred_log.dtype)
+        total_loss = torch.tensor(0.0, dtype=pred_log.dtype, device=pred_log.device)
+        for info in self.band_infos:
+            freq_bins = info["freq_bins"]
+            if freq_bins <= 0:
+                continue
+            diff = (pred_log[:, info["start"]:info["end"], :] - clean_log[:, info["start"]:info["end"], :]) ** 2
+            masked_diff = diff * mask
+            sum_sq = masked_diff.sum(dim=(1, 2))
+            denominator = freq_bins * lengths + self.loud_loss_eps
+            sample_loss = sum_sq / denominator
+            weight_tensor = torch.tensor(info["weight"], dtype=pred_log.dtype, device=pred_log.device)
+            total_loss = total_loss + weight_tensor * sample_loss.mean()
+        return total_loss
+
+    def _compute_si_snr(self, pred_frames, clean_frames, sequence_lengths):       
+        
+        # When center=False, ISTFT expects specific input/output relationships.
+        # To avoid the RuntimeError: istft ... window overlap add min: 1, which happens when
+        # center=False and padding is insufficient or reconstruction is tricky at edges,
+        # we enforce center=True just for the loss calculation and handle shapes if needed,
+        # OR we ensure the frames provided to istft are sufficient.
+        
+        # HACK: If we are training with center=False (streaming), using center=True here
+        # is a safe approximation for calculating SI-SNR loss on the whole batch, 
+        # as it just adds a bit of padding at edges which shouldn't affect the GLOBAL SNR too much
+        # and avoids the crash. The model still learns to output causal frames.
+        
+        # However, for correctness let's try to stick to config. If it fails, we might need to pad frames manually.
+        # The error "window overlap add min: 1" usually means we are trying to reconstruct a signal
+        # where some parts don't have enough overlap (start/end) because center=False doesn't pad.
+        
+        # Fix strategy: Force center=True for reconstruction during loss calculation even if model is streaming.
+        # This allows ISTFT to work without crashing on edge cases. 
+        # The frames `pred_frames` are what the model outputted. Reconstructing them with center=True
+        # might shift them slightly in time (half window), but SI-SNR is scale invariant, not shift invariant.
+        # So we must apply the same logic to `clean_frames`.
+        
+        # Actually, the error might be due to `clean_frames` often being the STFT of the original signal
+        # computed with center=False? If so, we need to be consistent.
+
+        # Let's try forcing center=True just for this calculation to see if it stabilizes training.
+        # Since we do it for both pred and clean, the shift is consistent.
+        
+        # REVERTING previous logic to just use center=True to avoid crash, assuming the time-shift cancels out
+        # because we do it for both signals.
+        
+        pred_wave = torch.istft(pred_frames, n_fft=self.n_fft, hop_length=self.hop_length,
+                                win_length=self.frame_length, window=self.window, center=True)
+        clean_wave = torch.istft(clean_frames, n_fft=self.n_fft, hop_length=self.hop_length,
+                                 win_length=self.frame_length, window=self.window, center=True)
+                                     
+        si_snr_loss = torch.tensor(0.0, dtype=pred_wave.dtype, device=pred_wave.device)
+        valid_segments = 0
+        for idx in range(pred_frames.shape[0]):
+            frames = int(sequence_lengths[idx].item())
+            if frames <= 0:
+                continue
+            wave_len = self.frame_length + max(frames - 1, 0) * self.hop_length
+            wave_len = min(wave_len, pred_wave.shape[-1])
+            if wave_len <= 0:
+                continue
+            pred_slice = pred_wave[idx, :wave_len]
+            clean_slice = clean_wave[idx, :wave_len]
+            if pred_slice.numel() == 0 or clean_slice.numel() == 0:
+                continue
+            si_snr_loss += self.si_snr_loss(pred_slice.unsqueeze(0), clean_slice.unsqueeze(0))
+            valid_segments += 1
+        if valid_segments == 0:
+            return torch.tensor(0.0, dtype=si_snr_loss.dtype, device=si_snr_loss.device)
+        return si_snr_loss / valid_segments
 
     def _attach_regularization_hooks(self, layer_names=None, layer_types=None):
         self.hooks = []
