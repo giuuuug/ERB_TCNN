@@ -7,5 +7,6 @@
 #  *--------------------------------------------------------------------------------------------*/
 
 from .convlstm import ConvLSTMDenoiser
-from .stft_tcnn import STFTTCNN, DepthwiseSeparableConv
+from .stft_tcnn import STFTTCNN
 from .custom import Custom
+from .erb_tcnn import ERBTCNN
