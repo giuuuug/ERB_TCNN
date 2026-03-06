@@ -1,5 +1,5 @@
 general:
-  project_name: stft_tcnn_loud_loss
+  project_name: erb_tcnn_loud_loss_SI_SNR_SI_SNR
   logs_dir: logs
   saved_models_dir: saved_models 
   gpu_memory_limit: 0.9 # Fraction of GPU's memory to use.
@@ -7,7 +7,7 @@ general:
 
 operation_mode: chain_tqe
 model:
-  model_name: STFTTCNN # For training
+  model_name: ERBTCNN # For training
   state_dict_path: # For training and evaluating torch models
   model_path: # For quantization, evaluation, benchmarking and deployment only
 
@@ -19,6 +19,10 @@ model_specific:
   tcn_latent_dim: 512
   init_dilation: 2
   mask_activation: "sigmoid"
+  erb_subband_1: 65
+  erb_subband_2: 64
+  #nfft: 512
+  #fs: 16000
 
 dataset:
   dataset_name: valentini # Or "custom"
@@ -65,8 +69,10 @@ training:
  optimizer_arguments: {lr: 0.001}
 
  # Training loop parameters
- loss: loud_loss # one of ["wave_mse", "wave_snr", "wave_sisnr", "spec_mse", "loud_loss", "loud_loss__si_snr"]
- loud_loss_weight: 1.0
+ loss: loud_loss__si_snr # one of ["wave_mse", "wave_snr", "wave_sisnr", "spec_mse", "loud_loss", "loud_loss__si_snr"]
+ #loss: loud_loss # one of ["wave_mse", "wave_snr", "wave_sisnr", "spec_mse", "loud_loss", "loud_loss__si_snr"]
+ loud_loss_weight: 0.005
+ #loud_loss_weight: 1.0
  si_snr_loss_weight: 1.0
  batching_strategy: pad # one of ["trim", "pad"]
 
@@ -142,5 +148,5 @@ mlflow:
 
 hydra:
   run:
-    dir: ./pt/src/experiment_outputs/stft_tcnn_loud_loss
+    dir: ./pt/src/experiment_outputs/erb_tcnn_loud_loss_SI_SNR_SI_SNR
 

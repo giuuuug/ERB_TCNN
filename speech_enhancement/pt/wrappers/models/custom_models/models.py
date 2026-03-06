@@ -4,6 +4,10 @@ import torch
 from common.utils import log_to_file
 
 # Two separate functions here in case we need to separate the model loading logic later on
+@MODEL_WRAPPER_REGISTRY.register(framework="torch",model_name="erbtcnn", use_case='speech_enhancement')
+def get_erbtcnn(cfg):
+    return _get_model(cfg)
+
 @MODEL_WRAPPER_REGISTRY.register(framework="torch",model_name="stfttcnn", use_case='speech_enhancement')
 def get_stfttcnn(cfg):
     return _get_model(cfg)
@@ -31,6 +35,7 @@ def _get_model(cfg):
 
 
 PT_MODEL_FNS = {
+    'erbtcnn': get_erbtcnn,
     'stfttcnn': get_stfttcnn,
     'convlstm': get_convlstm
 }
