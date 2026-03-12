@@ -9,6 +9,7 @@
 
 from pathlib import Path
 from speech_enhancement.pt.src.evaluators import MagSpecONNXEvaluator, MagSpecTorchEvaluator
+from speech_enhancement.pt.src.evaluators.myspec_stream import MyMagSpecONNXEvaluator_Stream, MyMagSpecTorchEvaluator_Stream
 from common.utils import log_to_file
 from common.evaluation import model_is_quantized
 import mlflow
@@ -84,14 +85,24 @@ class SETorchEvaluatorWrapper(BaseEvaluatorWrapper):
         self.model_type = "Float"
         super().__init__(cfg, model, dataloaders)
 
-        self.evaluator = MagSpecTorchEvaluator(model=model,
-                            eval_data=self.eval_dl,
-                            logs_path=self.logs_path,
-                            device=self.cfg.evaluation.device,
-                            device_memory_fraction=self.cfg.general.gpu_memory_limit,
-                            metric_names=self.metric_names,
-                            **self.preproc_args
-                            )
+        if cfg.operation_mode is not None and "stream" in cfg.operation_mode:
+            self.evaluator = MyMagSpecTorchEvaluator_Stream(model=model,
+                                eval_data=self.eval_dl,
+                                logs_path=self.logs_path,
+                                device=self.cfg.evaluation.device,
+                                device_memory_fraction=self.cfg.general.gpu_memory_limit,
+                                metric_names=self.metric_names,
+                                **self.preproc_args
+                                )
+        else:
+            self.evaluator = MagSpecTorchEvaluator(model=model,
+                                eval_data=self.eval_dl,
+                                logs_path=self.logs_path,
+                                device=self.cfg.evaluation.device,
+                                device_memory_fraction=self.cfg.general.gpu_memory_limit,
+                                metric_names=self.metric_names,
+                                **self.preproc_args
+                                )
 
     def evaluate(self):
         '''Run evaluation with the Torch evaluator and log results.
@@ -127,12 +138,20 @@ class SEONNXEvaluatorWrapper(BaseEvaluatorWrapper):
         self.model_type = "Quantized" if model_is_quantized(model._model_path) else "Float"
         super().__init__(cfg, model, dataloaders)
 
-        self.evaluator = MagSpecONNXEvaluator(session=self.model,
-                                eval_data=self.eval_dl,
-                                logs_path=self.logs_path,
-                                fixed_sequence_length=self.cfg.evaluation.fixed_sequence_lenth,
-                                metric_names=self.metric_names,
-                                **self.preproc_args)
+        if cfg.operation_mode is not None and "stream" in cfg.operation_mode:
+            self.evaluator = MyMagSpecONNXEvaluator_Stream(session=self.model,
+                                    eval_data=self.eval_dl,
+                                    logs_path=self.logs_path,
+                                    fixed_sequence_length=self.cfg.evaluation.fixed_sequence_length,
+                                    metric_names=self.metric_names,
+                                    **self.preproc_args)
+        else:
+            self.evaluator = MagSpecONNXEvaluator(session=self.model,
+                                    eval_data=self.eval_dl,
+                                    logs_path=self.logs_path,
+                                    fixed_sequence_length=self.cfg.evaluation.fixed_sequence_length,
+                                    metric_names=self.metric_names,
+                                    **self.preproc_args)
 
     def evaluate(self):
         '''Run evaluation with the ONNX evaluator and log results.

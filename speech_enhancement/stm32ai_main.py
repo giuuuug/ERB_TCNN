@@ -114,7 +114,34 @@ def _process_mode(cfg):
                                   model=quantized_model_session, 
                                   dataloaders=dataloaders)
         evaluator.evaluate()
+    
+    elif mode == "chain_tqe_stream":
+        trainer = get_trainer(cfg=cfg, 
+                              model=model, 
+                              dataloaders=dataloaders)
+        print("[INFO] Training model")
+        _, best_model_session = trainer.train()
+        print("[INFO] Evaluating float model")
+        evaluator = get_evaluator(cfg=cfg, 
+                                  model=best_model_session, 
+                                  dataloaders=dataloaders)
+        evaluator.evaluate()
+
+        print("[INFO] Quantizing model")
+        quantizer = get_quantizer(cfg=cfg, 
+                                  model=best_model_session, 
+                                  dataloaders=dataloaders)
+        quantized_model_session, _ = quantizer.quantize()
         
+        p = Path(cfg.evaluation.logs_path)
+        cfg.evaluation.logs_path = p.with_stem(p.stem + '_quantized')
+
+        print("[INFO] Evaluating quantized model")
+        evaluator = get_evaluator(cfg=cfg, 
+                                  model=quantized_model_session, 
+                                  dataloaders=dataloaders)
+        evaluator.evaluate()
+     
     elif mode == "chain_eqe":
         if model_is_quantized(cfg.model.model_path):
             raise ValueError("Tried to run chain_eqe on a quantized ONNX model. \n"

@@ -9,7 +9,8 @@
 from common.registries.quantizer_registry import QUANTIZER_WRAPPER_REGISTRY
 
 from speech_enhancement.pt.src.quantization import SEONNXPTQQuantizer
-__all__ = ['SEONNXPTQQuantizer']
+from speech_enhancement.pt.src.quantization.quantize_stream import SEONNXPTQQuantizer_Stream
+__all__ = ['SEONNXPTQQuantizer', 'SEONNXPTQQuantizer_Stream']
 
 # Register the ONNX PTQ Quantizer class from another folder
 QUANTIZER_WRAPPER_REGISTRY.register(
@@ -17,4 +18,11 @@ QUANTIZER_WRAPPER_REGISTRY.register(
     framework="torch",
     use_case="speech_enhancement"
 )(SEONNXPTQQuantizer)
+
+# Register the streaming ONNX PTQ Quantizer (multi-input, for streaming models)
+QUANTIZER_WRAPPER_REGISTRY.register(
+    quantizer_name="onnx_quantizer_stream",
+    framework="torch",
+    use_case="speech_enhancement"
+)(SEONNXPTQQuantizer_Stream)
 

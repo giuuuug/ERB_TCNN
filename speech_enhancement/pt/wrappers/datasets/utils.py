@@ -44,7 +44,7 @@ def get_dataloaders(cfg: DictConfig):
     del pipeline_args["pipeline_type"]
     
     # If we are asked to load the training set
-    if cfg.training and cfg.operation_mode in ["training", "chain_tqe", "chain_tqeb"]:
+    if cfg.training and cfg.operation_mode in ["training", "chain_tqe", "chain_tqeb", "chain_tqe_stream"]:
 
         input_pipeline = getattr(speech_enhancement.pt.src.preprocessing, pipeline_type)(
         magnitude=False, **pipeline_args)
@@ -91,7 +91,7 @@ def get_dataloaders(cfg: DictConfig):
         valid_dl = None
     
     # If we need to load eval set
-    if cfg.evaluation and cfg.operation_mode in ["evaluation", "chain_eqe", "chain_tqe", "chain_tqeb", "chain_eqeb"]:
+    if cfg.evaluation and cfg.operation_mode in ["evaluation", "chain_eqe", "chain_tqe", "chain_tqeb", "chain_eqeb", "chain_tqe_stream"]:
         
         input_pipeline = getattr(speech_enhancement.pt.src.preprocessing, pipeline_type)(
         magnitude=False, **pipeline_args)
@@ -113,7 +113,7 @@ def get_dataloaders(cfg: DictConfig):
         eval_dl = None
     
     # If we need to load quant set
-    if cfg.quantization and cfg.operation_mode in ["quantization", "chain_qd", "chain_qb", "chain_tqe", "chain_tqeb", "chain_eqe", "chain_eqeb"]:
+    if cfg.quantization and cfg.operation_mode in ["quantization", "chain_qd", "chain_qb", "chain_tqe", "chain_tqeb", "chain_eqe", "chain_eqeb", "chain_tqe_stream"]:
         input_pipeline = getattr(speech_enhancement.pt.src.preprocessing, pipeline_type)(
         magnitude=True, **pipeline_args)
 

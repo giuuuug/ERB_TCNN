@@ -10,3 +10,4 @@ from .convlstm import ConvLSTMDenoiser
 from .stft_tcnn import STFTTCNN
 from .custom import Custom
 from .erb_tcnn import ERBTCNN
+from .erb_tcnn_stream import ERBTCNN_Stream

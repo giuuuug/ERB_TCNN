@@ -1,20 +1,20 @@
 general:
-  project_name: erb_tcnn_loud_loss_SI_SNR_SI_SNR
+  project_name: erb_tcnn_loud_loss_SI_SNR_SI_SNR_STREAMING_notcentered_winreduced
   logs_dir: logs
   saved_models_dir: saved_models 
   gpu_memory_limit: 0.9 # Fraction of GPU's memory to use.
   display_figures: False # Set to True to display figures. Figures are saved even if set to False.
 
-operation_mode: chain_tqe
+operation_mode: chain_tqe_stream
 model:
-  model_name: ERBTCNN # For training
+  model_name: ERBTCNN_Stream # For training
   state_dict_path: # For training and evaluating torch models
   model_path: # For quantization, evaluation, benchmarking and deployment only
 
 model_specific:
   # Parameters specific to your model type, e.g. n_blocks, tcn_latent_dim for STFT-TCNN
-  n_blocks: 3
-  num_layers: 3
+  n_blocks: 2
+  num_layers: 5
   in_channels: 257
   tcn_latent_dim: 512
   init_dilation: 2
@@ -52,10 +52,10 @@ preprocessing:
   peak_normalize: False
   sample_rate: 16000
   n_fft: 512
-  hop_length: 160
-  win_length: 400
+  hop_length: 128
+  win_length: 320
   window: hann
-  center: True
+  center: False
   power: 1
 
 training:
@@ -131,7 +131,7 @@ quantization:
   # E.g, if the dynamic input shape model has input shape[?, 257, ?] 
   # The static shape model will have input shape [1, 257, 40] 
   # if static_sequence_length is 40. 
-  static_sequence_length: 40 
+  static_sequence_length: 1 
   static_axis_name: "seq_len"
   
   # The following parameters are passed to ONNXruntime's quantize_static function
@@ -148,5 +148,5 @@ mlflow:
 
 hydra:
   run:
-    dir: ./pt/src/experiment_outputs/erb_tcnn_loud_loss_SI_SNR_SI_SNR
+    dir: ./pt/src/experiment_outputs/erb_tcnn_loud_loss_SI_SNR_SI_SNR_STREAMING_notcentered_winreduced
 

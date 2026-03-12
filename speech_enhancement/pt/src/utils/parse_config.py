@@ -190,17 +190,17 @@ def get_config(config_data: DictConfig) -> DefaultMunch:
     # Top level section parsing
     cfg = DefaultMunch.fromDict(config_dict)
     mode_groups = DefaultMunch.fromDict({
-        "training": ["training", "chain_tqeb", "chain_tqe"],
-        "evaluation": ["evaluation", "chain_tqeb", "chain_tqe", "chain_eqe", "chain_eqeb"],
+        "training": ["training", "chain_tqeb", "chain_tqe", "chain_tqe_stream"],
+        "evaluation": ["evaluation", "chain_tqeb", "chain_tqe", "chain_eqe", "chain_eqeb", "chain_tqe_stream"],
         "quantization": ["quantization", "chain_tqeb", "chain_tqe", "chain_eqe",
-                         "chain_qb", "chain_eqeb", "chain_qd"],
+                         "chain_qb", "chain_eqeb", "chain_qd", "chain_tqe_stream"],
         "benchmarking": ["benchmarking", "chain_tqeb", "chain_qb", "chain_eqeb"],
         "deployment": ["deployment", "chain_qd"],
         "compression": []
     })
     mode_choices = ["training", "evaluation", "prediction", "deployment", 
                     "quantization", "benchmarking", "chain_tqeb", "chain_tqe",
-                    "chain_eqe", "chain_qb", "chain_eqeb", "chain_qd"]
+                    "chain_eqe", "chain_qb", "chain_eqeb", "chain_qd", "chain_tqe_stream"]
     
     legal = ["general", "operation_mode", "model", "model_specific", "dataset",
              "preprocessing", "training", "quantization", "evaluation", "tools",
@@ -244,8 +244,11 @@ def get_config(config_data: DictConfig) -> DefaultMunch:
 
     # Quantization section parsing
     if cfg.operation_mode in mode_groups.quantization:
-        # We only have 1 quantizer, add it to config in case it wasn't present in the YAML
-        cfg.quantization.quantizer = 'onnx_quantizer'
+        # Select the appropriate quantizer based on operation mode
+        if cfg.operation_mode is not None and "stream" in cfg.operation_mode:
+            cfg.quantization.quantizer = 'onnx_quantizer_stream'
+        else:
+            cfg.quantization.quantizer = 'onnx_quantizer'
         _parse_quantization_section(cfg.quantization)
 
     # Evaluation section parsing

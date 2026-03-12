@@ -12,6 +12,7 @@ from pathlib import Path
 import matplotlib.pyplot as plt
 from .spec import MagSpecTrainer
 from .myspec import MyMagSpecTrainer
+from speech_enhancement.pt.src.trainers.myspec_stream import MyMagSpecTrainer_Stream
 from speech_enhancement.pt.src.utils import plot_training_metrics
 from common.utils import log_to_file
 
@@ -77,26 +78,48 @@ class SETrainerWrapper:
         regularization_args = cfg.training.regularization
 
         if cfg.training.trainer_model  == "MyMagSpecTrainer":
-            print("\n[ASSERTION] Using MyMagSpecTrainer \n")
-            self.trainer = MyMagSpecTrainer(model=model,
-                                optimizer=self.optimizer,
-                                train_data=self.train_dl,
-                                valid_data=self.valid_dl,
-                                loss=cfg.training.loss,
-                                batching_strat=cfg.training.batching_strategy,
-                                device=cfg.training.device,
-                                device_memory_fraction=cfg.general.gpu_memory_limit,
-                                save_every=cfg.training.save_every,
-                                ckpt_path=ckpt_path,
-                                logs_path=self.logs_path,
-                                snapshot_path=snapshot_path,
-                                early_stopping=cfg.training.early_stopping,
-                                early_stopping_patience=cfg.training.early_stopping_patience,
-                                reference_metric=cfg.training.reference_metric,
-                                loud_loss_weight=cfg.training.loud_loss_weight,
-                                si_snr_loss_weight=cfg.training.si_snr_loss_weight,
-                                **preproc_args,
-                                **regularization_args)
+            if cfg.operation_mode is not None and "stream" in cfg.operation_mode:
+                print("\n[ASSERTION] Using MyMagSpecTrainer_Stream \n")
+                self.trainer = MyMagSpecTrainer_Stream(model=model,
+                                    optimizer=self.optimizer,
+                                    train_data=self.train_dl,
+                                    valid_data=self.valid_dl,
+                                    loss=cfg.training.loss,
+                                    batching_strat=cfg.training.batching_strategy,
+                                    device=cfg.training.device,
+                                    device_memory_fraction=cfg.general.gpu_memory_limit,
+                                    save_every=cfg.training.save_every,
+                                    ckpt_path=ckpt_path,
+                                    logs_path=self.logs_path,
+                                    snapshot_path=snapshot_path,
+                                    early_stopping=cfg.training.early_stopping,
+                                    early_stopping_patience=cfg.training.early_stopping_patience,
+                                    reference_metric=cfg.training.reference_metric,
+                                    loud_loss_weight=cfg.training.loud_loss_weight,
+                                    si_snr_loss_weight=cfg.training.si_snr_loss_weight,
+                                    **preproc_args,
+                                    **regularization_args)
+            else:
+                print("\n[ASSERTION] Using MyMagSpecTrainer \n")
+                self.trainer = MyMagSpecTrainer(model=model,
+                                    optimizer=self.optimizer,
+                                    train_data=self.train_dl,
+                                    valid_data=self.valid_dl,
+                                    loss=cfg.training.loss,
+                                    batching_strat=cfg.training.batching_strategy,
+                                    device=cfg.training.device,
+                                    device_memory_fraction=cfg.general.gpu_memory_limit,
+                                    save_every=cfg.training.save_every,
+                                    ckpt_path=ckpt_path,
+                                    logs_path=self.logs_path,
+                                    snapshot_path=snapshot_path,
+                                    early_stopping=cfg.training.early_stopping,
+                                    early_stopping_patience=cfg.training.early_stopping_patience,
+                                    reference_metric=cfg.training.reference_metric,
+                                    loud_loss_weight=cfg.training.loud_loss_weight,
+                                    si_snr_loss_weight=cfg.training.si_snr_loss_weight,
+                                    **preproc_args,
+                                    **regularization_args)
         else:
             print("\n[ASSERTION] Using MagSpecTrainer \n")
             self.trainer = MagSpecTrainer(model=model,
@@ -158,38 +181,81 @@ class SETrainerWrapper:
         # NOTE : Change this when adding support for decomposed LSTM
         
         model.eval()
-        dummy_tensor = torch.ones((1, self.cfg.preprocessing.n_fft // 2 + 1, 10))
         model.to("cpu")
+        is_stream = self.cfg.operation_mode is not None and "stream" in self.cfg.operation_mode
+        
+        if is_stream:
+            # For streaming models we use T=1 and pass explicit states, and no dynamic axes for STM32 deployment
+            dummy_tensor = torch.ones((1, self.cfg.preprocessing.n_fft // 2 + 1, 1))
+            states = model.get_initial_states(batch_size=1, device="cpu")
+            num_states = sum(1 for block in states for s in block)
+            input_names = ["input"] + [f"state_in_{i}" for i in range(num_states)]
+            output_names = ["output"] + [f"state_out_{i}" for i in range(num_states)]
+            dynamic_axes = None
+            inputs_tuple = (dummy_tensor, states)
+        else:
+            dummy_tensor = torch.ones((1, self.cfg.preprocessing.n_fft // 2 + 1, 10))
+            input_names = ["input"]
+            output_names = ["output"]
+            dynamic_axes = {"input":{2:"seq_len"}, "output":{2:"seq_len"}}
+            inputs_tuple = dummy_tensor
+
         onnx_model_path = Path(self.cfg.output_dir, self.cfg.general.saved_models_dir, 'trained_model.onnx')
         onnx_model_path.parent.mkdir(exist_ok=True)
-        torch.onnx.export(model,
-                        dummy_tensor,
-                        onnx_model_path,
-                        export_params=True,
-                        opset_version=self.cfg.training.opset_version,
-                        do_constant_folding=True,
-                        input_names=["input"],
-                        output_names=["output"],
-                        dynamic_axes={"input":{2:"seq_len"},
-                                        "output":{2:"seq_len"}} # Dynamic sequence length axes
-                        )
+        
+        if dynamic_axes is not None:
+            torch.onnx.export(model,
+                            inputs_tuple,
+                            onnx_model_path,
+                            export_params=True,
+                            opset_version=self.cfg.training.opset_version,
+                            do_constant_folding=True,
+                            input_names=input_names,
+                            output_names=output_names,
+                            dynamic_axes=dynamic_axes
+                            )
+        else:
+            torch.onnx.export(model,
+                            inputs_tuple,
+                            onnx_model_path,
+                            export_params=True,
+                            opset_version=self.cfg.training.opset_version,
+                            do_constant_folding=True,
+                            input_names=input_names,
+                            output_names=output_names
+                            )
         
         # Same with best model 
         
         best_model.eval()
         best_model.to("cpu")
+        if is_stream:
+            states = best_model.get_initial_states(batch_size=1, device="cpu")
+            inputs_tuple = (dummy_tensor, states)
+
         best_onnx_model_path = Path(self.cfg.output_dir, self.cfg.general.saved_models_dir, 'best_trained_model.onnx')
-        torch.onnx.export(best_model,
-                        dummy_tensor,
-                        best_onnx_model_path,
-                        export_params=True,
-                        opset_version=self.cfg.training.opset_version,
-                        do_constant_folding=True,
-                        input_names=["input"],
-                        output_names=["output"],
-                        dynamic_axes={"input":{2:"seq_len"},
-                                        "output":{2:"seq_len"}} # Dynamic sequence length axes
-                        )
+        
+        if dynamic_axes is not None:
+            torch.onnx.export(best_model,
+                            inputs_tuple,
+                            best_onnx_model_path,
+                            export_params=True,
+                            opset_version=self.cfg.training.opset_version,
+                            do_constant_folding=True,
+                            input_names=input_names,
+                            output_names=output_names,
+                            dynamic_axes=dynamic_axes
+                            )
+        else:
+             torch.onnx.export(best_model,
+                            inputs_tuple,
+                            best_onnx_model_path,
+                            export_params=True,
+                            opset_version=self.cfg.training.opset_version,
+                            do_constant_folding=True,
+                            input_names=input_names,
+                            output_names=output_names
+                            )
         
         print("\n [INFO] Training complete\n"
               f"Trained model saved at {onnx_model_path}")
