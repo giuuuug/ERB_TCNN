@@ -29,8 +29,8 @@ class DepthwiseSeparableConvStream(nn.Module):
         self.pointwise_conv = nn.Conv1d(in_channels, out_channels, kernel_size=1, bias=False)
 
     def forward(self, x, state):
-        # x: [B, C, T]
-        # state: [B, C, RF]
+        # x: [Batch, Canali, Tempo=1]
+        # state: [Batch, Canali, Memoria_Passata(RF)]
         
         if self.receptive_field > 0:
             x_concat = torch.cat([state, x], dim=2)  # [B, C, RF + T]
@@ -144,12 +144,11 @@ class ERB(nn.Module):
 
 
 class ERBTCNN_Stream(nn.Module):
-    def __init__(self, in_channels=257, tcn_latent_dim=512, n_blocks=2, kernel_size=3, num_layers=5,
+    def __init__(self, tcn_latent_dim=512, in_channels=257, n_blocks=2, kernel_size=3, num_layers=5,
                  mask_activation="tanh", layer_activation="relu", init_dilation=2,
-                 erb_subband_1=65, erb_subband_2=64, nfft=512, fs=16000, **kwargs):
+                 erb_subband_1=65, erb_subband_2=64, nfft=512, fs=16000,**kwargs):
         super().__init__()
         self.in_channels = in_channels
-        self.tcn_latent_dim = tcn_latent_dim
         self.n_blocks = n_blocks
         self.kernel_size = kernel_size
         self.num_layers = num_layers

@@ -264,16 +264,19 @@ class MyMagSpecTrainer_Stream(BaseTrainer):
                 "snr": 0,
                 "si-snr": 0
             }
+            valid_pesq_count = 0
             for batch in tqdm(self.valid_data):
                 batch_loss, batch_pesq, batch_stoi, batch_snr, batch_si_snr = self._run_validation_batch(batch)
                 valid_metrics["train_loss"] += batch_loss
-                valid_metrics["pesq"] += batch_pesq
+                if batch_pesq is not None:
+                    valid_metrics["pesq"] += batch_pesq
+                    valid_pesq_count += 1
                 valid_metrics["stoi"] += batch_stoi
                 valid_metrics["snr"] += batch_snr
                 valid_metrics["si-snr"] += batch_si_snr
 
             valid_metrics["train_loss"] /= num_batches
-            valid_metrics["pesq"] /= num_batches
+            valid_metrics["pesq"] = (valid_metrics["pesq"] / valid_pesq_count) if valid_pesq_count > 0 else 0.0
             valid_metrics["stoi"] /= num_batches
             valid_metrics["snr"] /= num_batches
             valid_metrics["si-snr"] /= num_batches
@@ -332,10 +335,14 @@ class MyMagSpecTrainer_Stream(BaseTrainer):
 
         valid_loss = np.mean((denoised - clean_source) ** 2)
 
-        valid_pesq = pesq(fs=self.sampling_rate,
-                          ref=clean_source,
-                          deg=denoised,
-                          mode="wb")
+        try:
+            valid_pesq = pesq(fs=self.sampling_rate,
+                              ref=clean_source,
+                              deg=denoised,
+                              mode="wb")
+        except Exception:
+            valid_pesq = None
+
         valid_stoi = stoi(x=clean_source,
                           y=denoised,
                           fs_sig=self.sampling_rate)

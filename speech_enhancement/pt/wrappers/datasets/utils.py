@@ -78,7 +78,7 @@ def get_dataloaders(cfg: DictConfig):
         print("[INFO] Loading validation set")
         valid_ds = load_dataset_from_cfg(cfg,
                                         set="valid",
-                                        n_clips=None,
+                                        n_clips=cfg.dataset.num_validation_samples,
                                         val_split=cfg.dataset.num_validation_samples,
                                         input_pipeline=input_pipeline,
                                         target_pipeline=valid_target_pipeline)

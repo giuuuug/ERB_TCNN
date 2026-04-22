@@ -9,3 +9,4 @@
 
 from .valentini import get_valentini
 from .custom import get_custom
+from .dns import get_dns

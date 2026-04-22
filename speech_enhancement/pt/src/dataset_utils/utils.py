@@ -9,7 +9,8 @@
 
 '''Utility file with functions to load a dataset from the user_config cfg'''
 
-from speech_enhancement.pt.src.dataset_utils import Valentini, CustomValentiniLike
+from .valentini import Valentini, CustomValentiniLike
+from .dns import DNSDataset
 
 def _load_valentini(cfg,
                     set,
@@ -109,6 +110,30 @@ def _load_custom_valentini_like(cfg,
                              random_seed=cfg.dataset.random_seed)
     return ds
 
+
+def _load_dns(cfg,
+              set,
+              n_clips,
+              input_pipeline,
+              target_pipeline=None,
+              preproc_lib="librosa"):
+    ds = DNSDataset(set=set,
+                    clean_train_files_path=cfg.dataset.clean_train_files_path,
+                    noisy_train_files_path=cfg.dataset.noisy_train_files_path,
+                    clean_valid_files_path=cfg.dataset.clean_valid_files_path,
+                    noisy_valid_files_path=cfg.dataset.noisy_valid_files_path,
+                    clean_test_files_path=cfg.dataset.clean_test_files_path,
+                    noisy_test_files_path=cfg.dataset.noisy_test_files_path,
+                    input_pipeline=input_pipeline,
+                    sample_rate=cfg.preprocessing.sample_rate,
+                    target_pipeline=target_pipeline,
+                    file_extension=cfg.dataset.file_extension,
+                    preproc_lib=preproc_lib,
+                    device="cpu",
+                    n_clips=n_clips,
+                    random_seed=cfg.dataset.random_seed)
+    return ds
+
 def load_dataset_from_cfg(cfg,
                           set,
                           n_clips,
@@ -143,7 +168,9 @@ def load_dataset_from_cfg(cfg,
                                            target_pipeline,
                                            quantization=quantization)
 
-    if cfg.dataset.dataset_name == "valentini":
+    dataset_name = cfg.dataset.dataset_name.lower()
+
+    if dataset_name == "valentini":
         if set =="valid":
             print("[INFO] The Valentini training set has 2.5 dB lower base SNR than the test set. \n"
                   "Therefore, validation performance will be worse than test performance.")
@@ -155,7 +182,7 @@ def load_dataset_from_cfg(cfg,
                                target_pipeline,
                                return_only_noisy=quantization)
     
-    elif cfg.dataset.dataset_name == "custom":
+    elif dataset_name == "custom":
         return _load_custom_valentini_like(cfg,
                                            set,
                                            n_clips,
@@ -163,8 +190,16 @@ def load_dataset_from_cfg(cfg,
                                            input_pipeline,
                                            target_pipeline,
                                            quantization=quantization)
+
+    elif dataset_name == "dns":
+        return _load_dns(cfg,
+                         set,
+                         n_clips,
+                         input_pipeline,
+                         target_pipeline,
+                         preproc_lib="librosa")
     else:
         raise ValueError("Invalid dataset name." 
-                         f"Must be one of 'valentini', 'custom', was {cfg.dataset.dataset_name}")
+                         f"Must be one of 'valentini', 'custom', 'dns', was {cfg.dataset.dataset_name}")
                          
     

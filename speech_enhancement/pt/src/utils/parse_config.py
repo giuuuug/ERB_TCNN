@@ -74,11 +74,16 @@ def _parse_dataset_section(cfg: DictConfig, mode: str = None, mode_groups: DictC
 
     legal = ["name", "dataset_name", "root_folder", "n_speakers", "file_extension", "num_training_samples",
              "num_validation_samples", "num_test_samples", "random_seed", "clean_train_files_path",
-             "clean_test_files_path", "noisy_train_files_path", "noisy_test_files_path", "shuffle"]
+             "clean_valid_files_path", "clean_test_files_path", "noisy_train_files_path",
+             "noisy_valid_files_path", "noisy_test_files_path", "shuffle"]
     one_or_more = ["name", "dataset_name"]
     required = ["file_extension", "random_seed"]
     if cfg.dataset_name == "valentini":
         required += ["root_folder", "n_speakers"]
+    if str(cfg.dataset_name).lower() == "dns":
+        required += ["clean_train_files_path", "noisy_train_files_path",
+                     "clean_valid_files_path", "noisy_valid_files_path",
+                     "clean_test_files_path", "noisy_test_files_path"]
     if mode in mode_groups.training and cfg.dataset_name == "custom":
         required += ["clean_train_files_path", "noisy_train_files_path"]
     elif mode in mode_groups.evaluation and cfg.dataset_name == "custom":
@@ -90,8 +95,10 @@ def _parse_dataset_section(cfg: DictConfig, mode: str = None, mode_groups: DictC
     # Check that the dataset directories exist
     dataset_audio_paths = [(cfg.root_folder, "root folder"),
                            (cfg.clean_train_files_path, "Clean training set files"),
+                           (cfg.clean_valid_files_path, "Clean validation set files"),
                            (cfg.clean_test_files_path, "Clean test set files"),
                            (cfg.noisy_train_files_path, "Noisy training set files"),
+                           (cfg.noisy_valid_files_path, "Noisy validation set files"),
                            (cfg.noisy_test_files_path, "Noisy test set files")]
     
     for path, name in dataset_audio_paths:
