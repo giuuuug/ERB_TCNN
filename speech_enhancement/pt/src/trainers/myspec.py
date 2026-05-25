@@ -92,6 +92,7 @@ class MyMagSpecTrainer(BaseTrainer):
                  early_stopping: bool = False,
                  reference_metric: str = "pesq",
                  early_stopping_patience: int = 20,
+                 scheduler: torch.optim.lr_scheduler.LRScheduler = None,
                  ):
         super().__init__(model=model,
                          optimizer=optimizer,
@@ -102,7 +103,8 @@ class MyMagSpecTrainer(BaseTrainer):
                          ckpt_path=ckpt_path,
                          logs_path=logs_path,
                          snapshot_path=snapshot_path,
-                         device_memory_fraction=device_memory_fraction)
+                         device_memory_fraction=device_memory_fraction,
+                         scheduler=scheduler)
         self.frame_length = frame_length
         self.hop_length = hop_length
         self.n_fft = n_fft
@@ -283,7 +285,8 @@ class MyMagSpecTrainer(BaseTrainer):
         
         # Early stopping stuff
         # Update the best model, best ref metric and best epoch
-        self._update_best_model(value=valid_metrics[self.reference_metric], epoch=epoch)
+        self.last_reference_metric_value = valid_metrics[self.reference_metric]
+        self._update_best_model(value=self.last_reference_metric_value, epoch=epoch)
         # If early stopping is enabled and patience is exceeded, return that we need to stop training
         return (self.early_stopping and (epoch - self.best_epoch > self.early_stopping_patience))
 

@@ -21,10 +21,10 @@ class BaseTrainer:
     Base trainer class with all the checkpointing, logging etc., but none of the actual
     training or evaluation logic.
     Does not support distributed training.
-    
+
     Notes
     -----
-    Trainers for actual models should subclass this class and implement the 
+    Trainers for actual models should subclass this class and implement the
     _run_train_batch, _run_validation_batch, _run_train_epoch and _run_validation_epoch methods.
     The _run_train_batch method should take a batch as input and retun training loss
     The _run_validation_batch method should take a batch as input and return validation metrics
@@ -42,7 +42,8 @@ class BaseTrainer:
                  ckpt_path: str = "checkpoints/",
                  logs_path: str = "training_logs.csv",
                  snapshot_path: str = "snapshot.pth",
-                 device_memory_fraction: float = 0.5):
+                 device_memory_fraction: float = 0.5,
+                 scheduler: torch.optim.lr_scheduler.LRScheduler = None):
         '''
         Parameters
         ----------
@@ -63,6 +64,7 @@ class BaseTrainer:
 
         self.model = model.to(device)
         self.optimizer = optimizer
+        self.scheduler = scheduler
         self.train_data = train_data
         self.valid_data = valid_data
         self.device = device
@@ -70,7 +72,9 @@ class BaseTrainer:
         self.ckpt_path = Path(ckpt_path)
         self.logs_path = Path(logs_path)
         self.snapshot_path = Path(snapshot_path)
-                
+        # Set by subclasses at the end of each validation epoch; used by ReduceLROnPlateau
+        self.last_reference_metric_value = None
+
         # Make sure to update the best model in the inheriting class
         self.best_model = copy.deepcopy(self.model)
 
@@ -123,12 +127,14 @@ class BaseTrainer:
         None
         '''
         snapshot = {
-            "MODEL_STATE":self.model.state_dict(),
-            "OPT_STATE":self.optimizer.state_dict(),
-            "EPOCH":epoch,
-            "METRICS_ARRAY":self.metrics_array,
-            "BEST_MODEL_STATE":self.best_model.state_dict()
+            "MODEL_STATE": self.model.state_dict(),
+            "OPT_STATE": self.optimizer.state_dict(),
+            "EPOCH": epoch,
+            "METRICS_ARRAY": self.metrics_array,
+            "BEST_MODEL_STATE": self.best_model.state_dict()
         }
+        if self.scheduler is not None:
+            snapshot["SCHEDULER_STATE"] = self.scheduler.state_dict()
         torch.save(snapshot, self.snapshot_path)
 
     def load_snapshot(self):
@@ -149,8 +155,23 @@ class BaseTrainer:
         self.starting_epoch = snapshot["EPOCH"]
         self.metrics_array = snapshot["METRICS_ARRAY"]
         self.best_model.load_state_dict(snapshot["BEST_MODEL_STATE"])
+        if self.scheduler is not None and "SCHEDULER_STATE" in snapshot:
+            self.scheduler.load_state_dict(snapshot["SCHEDULER_STATE"])
         print("Snapshot loaded successfully.")
         
+    def _step_scheduler(self):
+        if self.scheduler is None:
+            return
+        old_lr = self.optimizer.param_groups[0]['lr']
+        if isinstance(self.scheduler, torch.optim.lr_scheduler.ReduceLROnPlateau):
+            if self.last_reference_metric_value is not None:
+                self.scheduler.step(self.last_reference_metric_value)
+        else:
+            self.scheduler.step()
+        new_lr = self.optimizer.param_groups[0]['lr']
+        if new_lr != old_lr:
+            print(f"[INFO] LR changed: {old_lr:.2e} -> {new_lr:.2e}")
+
     def _run_train_batch(self, batch):
         raise NotImplementedError(self.missing_method_str("_run_train_batch"))
     def _run_validation_batch(self, batch):
@@ -202,6 +223,7 @@ class BaseTrainer:
         for epoch in range(self.starting_epoch, n_epochs):
             self._run_train_epoch(epoch)
             stop = self._run_validation_epoch(epoch)
+            self._step_scheduler()
             if (epoch + 1) % self.save_every == 0:
                 self.save_snapshot(epoch=epoch + 1)
                 self.save_checkpoint(epoch + 1, ckpt_name=f"checkpoint_epoch_{epoch + 1}")

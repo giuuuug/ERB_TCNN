@@ -44,9 +44,20 @@ class SETrainerWrapper:
         self.valid_dl = dataloaders["valid_dl"]
 
 
-         # Initialize optimizer
+        # Initialize optimizer
         self.optimizer = getattr(torch.optim, cfg.training.optimizer)(
             params=model.parameters(), **cfg.training.optimizer_arguments)
+
+        # Initialize LR scheduler (optional)
+        self.scheduler = None
+        lr_scheduler_cfg = getattr(cfg.training, "lr_scheduler", None)
+        if lr_scheduler_cfg is not None:
+            scheduler_name = getattr(lr_scheduler_cfg, "scheduler", None)
+            if scheduler_name:
+                scheduler_args = getattr(lr_scheduler_cfg, "scheduler_arguments", {}) or {}
+                self.scheduler = getattr(torch.optim.lr_scheduler, scheduler_name)(
+                    self.optimizer, **scheduler_args)
+                print(f"\n[INFO] LR scheduler: {scheduler_name} with args {scheduler_args}\n")
         
         # Gather preprocessing args that need to be passed to trainer
         preproc_args = {"sampling_rate":cfg.preprocessing.sample_rate,
@@ -97,6 +108,7 @@ class SETrainerWrapper:
                                     reference_metric=cfg.training.reference_metric,
                                     loud_loss_weight=cfg.training.loud_loss_weight,
                                     si_snr_loss_weight=cfg.training.si_snr_loss_weight,
+                                    scheduler=self.scheduler,
                                     **preproc_args,
                                     **regularization_args)
             else:
@@ -118,6 +130,7 @@ class SETrainerWrapper:
                                     reference_metric=cfg.training.reference_metric,
                                     loud_loss_weight=cfg.training.loud_loss_weight,
                                     si_snr_loss_weight=cfg.training.si_snr_loss_weight,
+                                    scheduler=self.scheduler,
                                     **preproc_args,
                                     **regularization_args)
         else:
@@ -137,6 +150,7 @@ class SETrainerWrapper:
                                 early_stopping=cfg.training.early_stopping,
                                 early_stopping_patience=cfg.training.early_stopping_patience,
                                 reference_metric=cfg.training.reference_metric,
+                                scheduler=self.scheduler,
                                 **preproc_args,
                                 **regularization_args)
         

@@ -1,5 +1,5 @@
 general:
-  project_name: erb_tcnn_loud_loss_SI_SNR_SI_SNR_STREAMING_notcentered_winreduced
+  project_name: M3_Short
   logs_dir: logs
   saved_models_dir: saved_models 
   gpu_memory_limit: 0.9 # Fraction of GPU's memory to use.
@@ -14,38 +14,39 @@ model:
 model_specific:
   # Parameters specific to your model type, e.g. n_blocks, tcn_latent_dim for STFT-TCNN
   n_blocks: 2
-  num_layers: 5
+  num_layers: 4
+  kernel_size: 4
+  init_dilation: 2
   in_channels: 257
   tcn_latent_dim: 512
-  init_dilation: 2
   mask_activation: "sigmoid"
   erb_subband_1: 65
   erb_subband_2: 64
-  #nfft: 512
-  #fs: 16000
 
 dataset:
-  dataset_name: valentini # Or "custom"
-  root_folder: /home/mgiuliani/TESI/Datasets/voicebank_demand # Root folder of dataset
-  n_speakers: 56 # For Valentini, 28 or 56 speaker dataset. Does nothing if name is "custom"
-  file_extension: '.wav' # Extension of audio files. Valentini dataset uses .wav
+  dataset_name: valentini
+  root_folder: /home/mgiuliani/TESI/Datasets/voicebank_demand
+  n_speakers: 56
+  file_extension: .wav
 
   # For the following parameters, leave empty to include all samples.
   # You can set them to a specific n° of samples (integer), 
   # or a fraction (float) of their respective sets.
 
   num_training_samples:  # N° of samples or fraction of training set to include in training set
-  num_validation_samples: 100 # N° of samples or fraction of training set to include in validation set.
+  num_validation_samples: 100  # N° of samples or fraction of training set to include in validation set.
   num_test_samples:  # N° of samples or fraction of test set to include in test set
   shuffle: True # If True, training dataset is shuffled each epoch
   random_seed: 42 # Random seed used for sampling. If left empty, sampling is not seeded.
 
   # The following parameters are to be used for custom datasets. 
   # You can leave them empty if "name" is "valentini", and the default paths will be used.
-  clean_train_files_path:
-  clean_test_files_path:
-  noisy_train_files_path:
-  noisy_test_files_path:
+  clean_train_files_path: 
+  clean_valid_files_path: 
+  clean_test_files_path: 
+  noisy_train_files_path: 
+  noisy_valid_files_path: 
+  noisy_test_files_path: 
 
 preprocessing:
   pipeline_type: LibrosaSpecPipeline # Do not change if unsure.
@@ -53,7 +54,7 @@ preprocessing:
   sample_rate: 16000
   n_fft: 512
   hop_length: 128
-  win_length: 320
+  win_length: 512
   window: hann
   center: False
   power: 1
@@ -85,7 +86,7 @@ training:
  
  # Early stopping parameter
  early_stopping: True # True/False to enable/disable
- early_stopping_patience: 20 # Number of epochs with no improvement in reference_metric before training stops.
+ early_stopping_patience: 15 # Number of epochs with no improvement in reference_metric before training stops.
 
 
 #  Regularization parameters
@@ -102,6 +103,14 @@ training:
  snapshot_path:  # Set this to a previously saved training snapshot to resume training.
  ckpt_path: ckpts/ # Path to checkpoints, appended to general.saved_model_dir
  logs_filename: training_logs.csv # appended to general.logs_dir
+
+ # Learning rate scheduler (optional)
+ # Leave `scheduler` empty to use a fixed learning rate (current behavior).
+ # Use any torch.optim.lr_scheduler class name as `scheduler`.
+ # ReduceLROnPlateau reads `reference_metric` above; for other schedulers it is ignored.
+ lr_scheduler:
+  scheduler: ReduceLROnPlateau
+  scheduler_arguments: {mode: max, factor: 0.5, patience: 3, min_lr: 0.00001}
 
  # ONNX exporting parameters
  opset_version: 18
@@ -148,5 +157,5 @@ mlflow:
 
 hydra:
   run:
-    dir: ./pt/src/experiment_outputs/erb_tcnn_loud_loss_SI_SNR_SI_SNR_STREAMING_notcentered_winreduced
+    dir: ./pt/src/experiment_outputs/M3_Short
 
